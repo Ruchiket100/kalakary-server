@@ -67,12 +67,14 @@ export async function reduceStock(orderItems: OrderItemType[]) {
 
 interface clearCacheProps {
     order?: boolean;
-    orderId?: string | Object;
+    orderId?: string;
     userId?: string;
     admin?: boolean;
+    product?: boolean;
+    productId?: string | string[];
 }
 
-export async function clearCache({ order, orderId, userId }: clearCacheProps) {
+export async function clearCache({ order, orderId, userId, admin, product, productId }: clearCacheProps) {
     if (order) {
         const ordersKeys: string[] = [
             "all-orders",
@@ -82,6 +84,23 @@ export async function clearCache({ order, orderId, userId }: clearCacheProps) {
         ordersKeys.forEach((key) => {
             redis.del(key);
         });
+    }
+
+    if (product) {
+        const productKeys: string[] = [
+            "latest-products",
+            "categories",
+            "all-products",
+        ];
+
+        if (typeof productId === "string") productKeys.push(`product-${productId}`);
+
+        if (typeof productId === "object")
+            productId.forEach((i) => productKeys.push(`product-${i}`));
+
+        productKeys.map((key, i) => {
+            redis.del(key);
+        })
     }
 }
 
@@ -105,3 +124,16 @@ export const uploadToCloudinary = async (files: Express.Multer.File[]) => {
         url: i.secure_url,
     }));
 };
+
+export const deleteFromCloudinary = async (publicIds: string[]) => {
+    const promises = publicIds.map(async (id) => {
+        return new Promise((resolve, reject) => {
+            cloudinary.uploader.destroy(id, (error, result) => {
+                if (error) return reject(error);
+                resolve(result!);
+            });
+        });
+    });
+
+    await Promise.all(promises);
+}
